@@ -15,15 +15,33 @@ GREEN="\e[32m"
 RED="\e[31m"
 RESET="\e[0m"
 
-# 需要的基本软件包
+# 需要的基本软件包（兼容 Bash 3，避免使用关联数组）
+REQUIRED_PACKAGES_COMMON="git sudo python3 curl gnupg"
+REQUIRED_PACKAGES_DEBIAN="python3-venv python3-pip build-essential"
+REQUIRED_PACKAGES_UBUNTU="python3-venv python3-pip build-essential"
+REQUIRED_PACKAGES_CENTOS="epel-release python3-pip python3-devel gcc gcc-c++ make"
+REQUIRED_PACKAGES_ARCH="python-virtualenv python-pip base-devel"
 
-declare -A REQUIRED_PACKAGES=(
-    ["common"]="git sudo python3 curl gnupg"
-    ["debian"]="python3-venv python3-pip build-essential"
-    ["ubuntu"]="python3-venv python3-pip build-essential"
-    ["centos"]="epel-release python3-pip python3-devel gcc gcc-c++ make"
-    ["arch"]="python-virtualenv python-pip base-devel"
-)
+get_required_packages() {
+    local distro="$1"
+    case "$distro" in
+    debian)
+        echo "${REQUIRED_PACKAGES_COMMON} ${REQUIRED_PACKAGES_DEBIAN}"
+        ;;
+    ubuntu)
+        echo "${REQUIRED_PACKAGES_COMMON} ${REQUIRED_PACKAGES_UBUNTU}"
+        ;;
+    centos)
+        echo "${REQUIRED_PACKAGES_COMMON} ${REQUIRED_PACKAGES_CENTOS}"
+        ;;
+    arch)
+        echo "${REQUIRED_PACKAGES_COMMON} ${REQUIRED_PACKAGES_ARCH}"
+        ;;
+    *)
+        echo "${REQUIRED_PACKAGES_COMMON}"
+        ;;
+    esac
+}
 
 # 默认项目目录
 DEFAULT_INSTALL_DIR="/opt/maicore"
@@ -386,7 +404,7 @@ run_installation() {
     install_packages() {
         missing_packages=()
         # 检查 common 及当前系统专属依赖
-        for package in ${REQUIRED_PACKAGES["common"]} ${REQUIRED_PACKAGES["$ID"]}; do
+        for package in $(get_required_packages "$ID"); do
             case "$PKG_MANAGER" in
             apt)
                 dpkg -s "$package" &>/dev/null || missing_packages+=("$package")
