@@ -209,6 +209,98 @@ check_eula() {
 
 }
 
+# 测速并选择PyPI源（仅当阿里云更快时使用阿里云）
+measure_url_latency() {
+    local url="$1"
+    local latency
+
+    latency=$(curl -sS -o /dev/null -w "%{time_total}" --connect-timeout 3 --max-time 8 "$url" 2>/dev/null)
+
+    if [[ $? -eq 0 && "$latency" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+        echo "$latency"
+        return 0
+    else
+        echo "999999"
+        return 1
+    fi
+}
+
+resolve_default_pypi_index_url() {
+    local default_url=""
+
+    if [[ -n "${PIP_INDEX_URL:-}" ]]; then
+        default_url="$PIP_INDEX_URL"
+    elif [[ -n "${UV_INDEX_URL:-}" ]]; then
+        default_url="$UV_INDEX_URL"
+    elif command -v pip &>/dev/null; then
+        default_url=$(pip config get global.index-url 2>/dev/null | head -n 1)
+        if [[ -z "$default_url" ]]; then
+            default_url=$(pip config get install.index-url 2>/dev/null | head -n 1)
+        fi
+    fi
+
+    if [[ -z "$default_url" ]]; then
+        default_url="https://pypi.org/simple"
+    fi
+
+    echo "$default_url"
+}
+
+select_pypi_index_url() {
+    local default_url
+    local aliyun_url="https://mirrors.aliyun.com/pypi/simple"
+    local default_latency
+    local aliyun_latency
+    local default_status
+    local aliyun_status
+
+    default_url=$(resolve_default_pypi_index_url)
+    default_latency=$(measure_url_latency "$default_url")
+    default_status=$?
+    aliyun_latency=$(measure_url_latency "$aliyun_url")
+    aliyun_status=$?
+
+    if [[ $aliyun_status -eq 0 && $default_status -ne 0 ]]; then
+        PYPI_INDEX_URL="$aliyun_url"
+        PYPI_INDEX_NAME="阿里云镜像（默认源测速失败）"
+        UV_PIP_INDEX_OPTION=(-i "$aliyun_url")
+        echo -e "${RED}默认源测速失败，已选择${PYPI_INDEX_NAME}：${PYPI_INDEX_URL}${RESET}"
+        return
+    fi
+
+    if [[ $aliyun_status -ne 0 && $default_status -eq 0 ]]; then
+        PYPI_INDEX_URL="$default_url"
+        PYPI_INDEX_NAME="默认源（阿里云测速失败）"
+        UV_PIP_INDEX_OPTION=()
+        echo -e "${RED}阿里云测速失败，已选择${PYPI_INDEX_NAME}：不显式指定 -i 参数${RESET}"
+        return
+    fi
+
+    if [[ $aliyun_status -ne 0 && $default_status -ne 0 ]]; then
+        PYPI_INDEX_URL="$default_url"
+        PYPI_INDEX_NAME="默认源（双源测速失败）"
+        UV_PIP_INDEX_OPTION=()
+        echo -e "${RED}默认源和阿里云测速均失败，回退到${PYPI_INDEX_NAME}：不显式指定 -i 参数${RESET}"
+        return
+    fi
+
+    if awk "BEGIN {exit !(${aliyun_latency} < ${default_latency})}"; then
+        PYPI_INDEX_URL="$aliyun_url"
+        PYPI_INDEX_NAME="阿里云镜像"
+        UV_PIP_INDEX_OPTION=(-i "$aliyun_url")
+    else
+        PYPI_INDEX_URL="$default_url"
+        PYPI_INDEX_NAME="默认源"
+        UV_PIP_INDEX_OPTION=()
+    fi
+
+    if [[ ${#UV_PIP_INDEX_OPTION[@]} -gt 0 ]]; then
+        echo -e "${GREEN}已选择${PYPI_INDEX_NAME}：${PYPI_INDEX_URL}${RESET}"
+    else
+        echo -e "${GREEN}已选择${PYPI_INDEX_NAME}：不显式指定 -i 参数${RESET}"
+    fi
+}
+
 # ----------- 主安装流程 -----------
 run_installation() {
     # 1/6: 检测是否安装 whiptail
@@ -448,20 +540,21 @@ run_installation() {
 
 
     echo -e "${GREEN}安装Python依赖...${RESET}"
+    select_pypi_index_url
     pip install -r MaiBot/requirements.txt
     cd MaiBot
     pip install uv
-    uv pip install -i https://mirrors.aliyun.com/pypi/simple -r requirements.txt   
+    uv pip install "${UV_PIP_INDEX_OPTION[@]}" -r requirements.txt
     cd ..
 
     echo -e "${GREEN}安装maim_message依赖...${RESET}"
     cd maim_message
-    uv pip install -i https://mirrors.aliyun.com/pypi/simple -e .
+    uv pip install "${UV_PIP_INDEX_OPTION[@]}" -e .
     cd ..
 
     echo -e "${GREEN}部署MaiBot Napcat Adapter...${RESET}"
     cd MaiBot-Napcat-Adapter
-    uv pip install -i https://mirrors.aliyun.com/pypi/simple -r requirements.txt
+    uv pip install "${UV_PIP_INDEX_OPTION[@]}" -r requirements.txt
     cd ..
 
     echo -e "${GREEN}同意协议...${RESET}"
