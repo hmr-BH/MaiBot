@@ -7,7 +7,6 @@ import traceback
 
 from src.chat.brain_chat.PFC.pfc_manager import PFCManager
 from src.chat.heart_flow.heartflow_message_processor import HeartFCMessageReceiver
-from src.chat.message_receive.message_old import MessageRecv
 from src.common.logger import get_logger
 from src.common.utils.utils_message import MessageUtils
 from src.common.utils.utils_session import SessionUtils
@@ -16,6 +15,7 @@ from src.plugin_system.core import component_registry, global_announcement_manag
 
 from .chat_manager import chat_manager
 from .message import SessionMessage
+from .message_old import MessageRecv
 
 try:
     from .storage import MessageStorage
