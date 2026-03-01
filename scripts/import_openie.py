@@ -2,7 +2,7 @@
 #     import src.plugins.knowledge.lib.quick_algo
 # except ImportError:
 #     print("未找到quick_algo库，无法使用quick_algo算法")
-#     print("请安装quick_algo库 - 在lib.quick_algo中，执行命令：python setup.py build_ext --inplace")
+#     print("请先安装quick_algo库：pip install quick-algo")
 
 import argparse
 import sys
