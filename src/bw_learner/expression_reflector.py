@@ -117,7 +117,7 @@ class ExpressionReflector:
         style = selected_expression.style
         logger.info(f"{LOG_PREFIX} 随机选择了表达 ID: {item_id}, Situation: {situation}, Style: {style}")
 
-        ask_text = (
+        _ask_text = (
             f"我正在学习新的表达方式，请帮我看看这个是否合适？\n\n"
             f"**学习到的表达信息**\n"
             f"- 情景 (Situation): {situation}\n"
