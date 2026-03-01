@@ -1,22 +1,26 @@
-import traceback
-import os
+from typing import Any, Dict
 
 from maim_message import MessageBase
-from typing import Dict, Any
 
+import os
+import traceback
 
+from src.chat.brain_chat.PFC.pfc_manager import PFCManager
+from src.chat.heart_flow.heartflow_message_processor import HeartFCMessageReceiver
+from src.chat.message_receive.message_old import MessageRecv
 from src.common.logger import get_logger
 from src.common.utils.utils_message import MessageUtils
 from src.common.utils.utils_session import SessionUtils
-from src.chat.message_receive.message_old import MessageRecv
-from src.chat.heart_flow.heartflow_message_processor import HeartFCMessageReceiver
-from src.chat.brain_chat.PFC.pfc_manager import PFCManager
-from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
-from src.plugin_system.core import component_registry, events_manager, global_announcement_manager
-from src.plugin_system.base import BaseCommand, EventType
+from src.plugin_system.base import BaseCommand
+from src.plugin_system.core import component_registry, global_announcement_manager
 
-from .message import SessionMessage
 from .chat_manager import chat_manager
+from .message import SessionMessage
+
+try:
+    from .storage import MessageStorage
+except ImportError:  # pragma: no cover - storage module may be absent in some runtime modes
+    MessageStorage = None
 
 # 定义日志配置
 
@@ -190,6 +194,9 @@ class ChatBot:
             return
         message_type = message_data.get("type")
         if message_type != "echo":
+            return
+        if MessageStorage is None:
+            logger.warning("MessageStorage 模块不可用，跳过回送消息ID更新")
             return
         mmc_message_id = message_data.get("echo")
         actual_message_id = message_data.get("actual_id")

@@ -40,7 +40,7 @@ class MaiExpression(BaseDatabaseDataModel[Expression]):
         self.last_active_time: datetime = last_active_time or datetime.now()
         self.create_time: datetime = create_time or datetime.now()
         self.session_id: Optional[str] = session_id
-        
+
         self.checked: bool = checked
         """是否已经被检查过"""
         self.rejected: bool = rejected

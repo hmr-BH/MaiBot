@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Optional
 import time
 
 from src.common.logger import get_logger
-from src.common.database.database import get_db_session
 from src.llm_models.utils_model import LLMRequest
 from src.config.config import model_config
 
@@ -14,6 +13,7 @@ if TYPE_CHECKING:
 judge_model = LLMRequest(model_set=model_config.model_task_config.tool_use, request_type="reflect.tracker")
 
 logger = get_logger("reflect_tracker")
+
 
 class ReflectTracker:
     def __init__(self, session_id: str):
@@ -34,7 +34,7 @@ class ReflectTracker:
         self.expression = expression
         self.tracking = True
         self.tracking_start_time = time.time()
-    
+
     def _reset_tracker(self):
         """重置追踪状态"""
         self.expression = None
@@ -56,5 +56,5 @@ class ReflectTracker:
         if time.time() - self.tracking_start_time > self.max_duration:
             self._reset_tracker()
             return True
-        
+
         # TODO: 完成追踪检查逻辑
