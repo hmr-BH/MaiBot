@@ -331,8 +331,28 @@ run_installation() {
             pacman -Syu --noconfirm whiptail
         elif command -v yum &>/dev/null; then
             yum install -y whiptail
+        elif command -v brew &>/dev/null || [[ -x /opt/homebrew/bin/brew ]] || [[ -x /usr/local/bin/brew ]]; then
+            BREW_BIN="$(command -v brew)"
+            [[ -z "$BREW_BIN" && -x /opt/homebrew/bin/brew ]] && BREW_BIN="/opt/homebrew/bin/brew"
+            [[ -z "$BREW_BIN" && -x /usr/local/bin/brew ]] && BREW_BIN="/usr/local/bin/brew"
+
+            # Homebrew 默认不支持 root 直接执行，若通过 sudo 运行脚本则切换回原用户安装。
+            if [[ "$(id -u)" -eq 0 && -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+                sudo -u "${SUDO_USER}" "${BREW_BIN}" install newt
+            else
+                "${BREW_BIN}" install newt
+            fi
+
+            # 确保当前 shell 能找到 Homebrew 安装的 whiptail。
+            [[ -x /opt/homebrew/bin/whiptail ]] && export PATH="/opt/homebrew/bin:${PATH}"
+            [[ -x /usr/local/bin/whiptail ]] && export PATH="/usr/local/bin:${PATH}"
         else
             echo -e "${RED}[Error] 无受支持的包管理器，无法安装 whiptail!${RESET}"
+            exit 1
+        fi
+
+        if ! command -v whiptail &>/dev/null; then
+            echo -e "${RED}[Error] whiptail 安装失败或不可用，请手动安装后重试。${RESET}"
             exit 1
         fi
     fi
