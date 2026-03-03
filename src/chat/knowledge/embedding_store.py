@@ -525,7 +525,9 @@ class EmbeddingStore:
             self.faiss_index = None
             self.dirty = False
             return
+        # L2归一化
         faiss.normalize_L2(embeddings)
+        # 构建索引
         self.faiss_index = faiss.IndexFlatIP(global_config.lpmm_knowledge.embedding_dimension)
         self.faiss_index.add(embeddings)
         del embeddings

@@ -37,6 +37,10 @@ class ChineseTypoGenerator:
         self.tone_error_rate = tone_error_rate
         self.word_replace_rate = word_replace_rate
         self.max_freq_diff = max_freq_diff
+        
+        # 加载数据
+        # print("正在加载汉字数据库，请稍候...")
+        # logger.info("正在加载汉字数据库，请稍候...")
 
         self.pinyin_dict = self._create_pinyin_dict()
         self.char_frequency = self._load_or_create_char_frequency()
@@ -249,8 +253,10 @@ class ChineseTypoGenerator:
         if len(word) == 1:
             return []
 
+        # 获取词的拼音
         word_pinyin = self._get_word_pinyin(word)
 
+        # 遍历所有可能的同音字组合
         candidates = []
         for py in word_pinyin:
             chars = self.pinyin_dict.get(py, [])
@@ -258,6 +264,7 @@ class ChineseTypoGenerator:
                 return []
             candidates.append(chars)
 
+        # 生成所有可能的组合
         import itertools
 
         all_combinations = itertools.product(*candidates)
@@ -268,21 +275,26 @@ class ChineseTypoGenerator:
             valid_words = self._jieba_dict_cache
 
         original_word_freq = valid_words.get(word, 0)
-        min_word_freq = original_word_freq * 0.1
+        min_word_freq = original_word_freq * 0.1  # 设置最小词频为原词频的10%
 
+        # 过滤和计算频率
         homophones = []
         for combo in all_combinations:
             new_word = "".join(combo)
             if new_word != word and new_word in valid_words:
                 new_word_freq = valid_words[new_word]
+                # 只保留词频达到阈值的词
                 if new_word_freq >= min_word_freq:
+                    # 计算词的平均字频（考虑字频和词频）
                     char_avg_freq = sum(self.char_frequency.get(c, 0) for c in new_word) / len(new_word)
+                    # 综合评分：结合词频和字频
                     combined_score = new_word_freq * 0.7 + char_avg_freq * 0.3
                     if combined_score >= self.min_freq:
                         homophones.append((new_word, combined_score))
 
+        # 按综合分数排序并限制返回数量
         sorted_homophones = sorted(homophones, key=lambda x: x[1], reverse=True)
-        return [word for word, _ in sorted_homophones[:5]]
+        return [word for word, _ in sorted_homophones[:5]]  # 限制返回前5个结果
 
     def create_typo_sentence(self, sentence):
         """
