@@ -469,9 +469,10 @@ class EmbeddingStore:
             transient=False,
         ) as progress:
             task = progress.add_task("加载嵌入库", total=total)
-            for _, row in data_frame.iterrows():
-                self.store[row["hash"]] = EmbeddingStoreItem(row["hash"], row["embedding"], row["str"])
+            for row in data_frame.itertuples(index=False):
+                self.store[row.hash] = EmbeddingStoreItem(row.hash, row.embedding, row.str)
                 progress.update(task, advance=1)
+        del data_frame
         logger.info(f"{self.namespace}嵌入库加载成功")
 
         try:
@@ -500,30 +501,34 @@ class EmbeddingStore:
 
     def build_faiss_index(self) -> None:
         """重新构建Faiss索引，以余弦相似度为度量"""
-        # 空库直接跳过，清空索引映射
         if not self.store:
+            if self.faiss_index is not None:
+                del self.faiss_index
+                self.faiss_index = None
             self.idx2hash = {}
-            self.faiss_index = None
             self.dirty = False
             return
 
-        # 获取所有的embedding
-        array = []
-        self.idx2hash = dict()
-        for key in self.store:
-            array.append(self.store[key].embedding)
-            self.idx2hash[str(len(array) - 1)] = key
-        embeddings = np.array(array, dtype=np.float32)
+        if self.faiss_index is not None:
+            del self.faiss_index
+            self.faiss_index = None
+
+        embeddings_list = [self.store[key].embedding for key in self.store]
+        self.idx2hash = {str(i): key for i, key in enumerate(self.store.keys())}
+        
+        embeddings = np.array(embeddings_list, dtype=np.float32)
+        del embeddings_list
+        
         if embeddings.size == 0:
+            del embeddings
             self.idx2hash = {}
             self.faiss_index = None
             self.dirty = False
             return
-        # L2归一化
         faiss.normalize_L2(embeddings)
-        # 构建索引
         self.faiss_index = faiss.IndexFlatIP(global_config.lpmm_knowledge.embedding_dimension)
         self.faiss_index.add(embeddings)
+        del embeddings
         self.dirty = False
 
     def delete_items(self, hashes: List[str]) -> Tuple[int, int]:
