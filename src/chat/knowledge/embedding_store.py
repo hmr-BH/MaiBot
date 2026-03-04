@@ -531,8 +531,6 @@ class EmbeddingStore:
         logger.info(f"正在保存{self.namespace}嵌入库到文件{self.embedding_file_path}")
         
         if not self._memory_mode and self._disk_data_frame is not None:
-            # 按需加载模式：合并缓存和磁盘数据
-            # 1. 获取所有需要保存的数据
             all_data = []
             
             # 先添加磁盘中的数据
@@ -559,7 +557,6 @@ class EmbeddingStore:
             
             data_frame = pd.DataFrame(list(reversed(unique_data)))  # 恢复原始顺序
             
-            # 释放旧的DataFrame
             del self._disk_data_frame
             self._disk_data_frame = None
             gc.collect()
@@ -576,7 +573,6 @@ class EmbeddingStore:
         data_frame.to_parquet(self.embedding_file_path, engine="pyarrow", index=False)
         logger.info(f"{self.namespace}嵌入库保存成功，共{len(data_frame)}条")
         
-        # 保存后重新加载（更新磁盘索引）
         if not self._memory_mode:
             del data_frame
             gc.collect()
