@@ -229,7 +229,7 @@ class EmbeddingStore:
         return [f"{namespace}-{get_sha256(t)}" for t in texts]
 
     def _get_embedding(self, s: str) -> List[float]:
-        """获取字符串的嵌入向量"""
+        """获取字符串的嵌入向量，使用完全同步的方式避免事件循环问题"""
         # 创建新的事件循环并在完成后立即关闭
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
