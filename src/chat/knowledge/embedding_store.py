@@ -633,7 +633,6 @@ class EmbeddingStore:
                     self._cache[row.hash] = EmbeddingStoreItem(row.hash, row.embedding, row.str)
                     progress.update(task, advance=1)
         else:
-            # 大数据集：按需加载模式
             self._memory_mode = False
             logger.info(f"{self.namespace}嵌入库数据量({total})超过缓存限制({self.max_cache_size})，使用按需加载模式")
             
@@ -641,13 +640,11 @@ class EmbeddingStore:
             for idx, row in enumerate(data_frame.itertuples(index=False)):
                 self._disk_index[row.hash] = idx
             
-            # 保留DataFrame引用用于按需加载
             self._disk_data_frame = data_frame
             
             logger.info(f"{self.namespace}嵌入库磁盘索引构建完成，共{len(self._disk_index)}条")
-            return  # 注意：这里不删除data_frame，因为按需加载需要它
+            return
         
-        # 内存模式：删除DataFrame释放内存
         if self._memory_mode:
             del data_frame
         logger.info(f"{self.namespace}嵌入库加载成功，当前缓存{len(self._cache)}条")
