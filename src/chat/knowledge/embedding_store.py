@@ -114,11 +114,9 @@ class EmbeddingStore:
         
         self.dirty = False  # 标记是否有新增数据需要重建索引
 
-        # 多线程配置参数验证和设置
         self.max_workers = max(MIN_WORKERS, min(MAX_WORKERS, max_workers))
         self.chunk_size = max(MIN_CHUNK_SIZE, min(MAX_CHUNK_SIZE, chunk_size))
 
-        # 如果配置值被调整，记录日志
         if self.max_workers != max_workers:
             logger.warning(
                 f"max_workers 已从 {max_workers} 调整为 {self.max_workers} (范围: {MIN_WORKERS}-{MAX_WORKERS})"
@@ -128,10 +126,8 @@ class EmbeddingStore:
                 f"chunk_size 已从 {chunk_size} 调整为 {self.chunk_size} (范围: {MIN_CHUNK_SIZE}-{MAX_CHUNK_SIZE})"
             )
 
-        # 内存缓存限制
         self.max_cache_size = max_cache_size or self.DEFAULT_MAX_CACHE_SIZE
         
-        # 使用OrderedDict实现LRU缓存
         self._cache: OrderedDict[str, EmbeddingStoreItem] = OrderedDict()
         self._cache_hits = 0
         self._cache_misses = 0
@@ -152,12 +148,12 @@ class EmbeddingStore:
         """兼容旧代码的store属性访问
         
         如果处于按需加载模式，返回当前缓存的内容
-        注意：此方法主要用于写入操作，读取请使用get_item方法
+        注意：这个方法主要用于写入操作，读取请用get_item方法
         """
         return self._cache
     
     def _ensure_cache_size(self):
-        """确保缓存不超过最大限制，使用LRU策略淘汰旧数据"""
+        """确保缓存不超过最大限制"""
         while len(self._cache) > self.max_cache_size:
             # 淘汰最久未使用的条目
             oldest_key, oldest_item = self._cache.popitem(last=False)
@@ -173,7 +169,6 @@ class EmbeddingStore:
         Returns:
             EmbeddingStoreItem或None
         """
-        # 1. 检查缓存
         if key in self._cache:
             # 移动到末尾（最近使用）
             item = self._cache.pop(key)
@@ -181,19 +176,16 @@ class EmbeddingStore:
             self._cache_hits += 1
             return item
         
-        # 2. 内存模式：如果全部在内存中但未找到，返回None
         if self._memory_mode:
             self._cache_misses += 1
             return None
-            
-        # 3. 按需加载模式：从磁盘加载
+        
         if key in self._disk_index and self._disk_data_frame is not None:
             try:
                 row_idx = self._disk_index[key]
                 row = self._disk_data_frame.iloc[row_idx]
                 item = EmbeddingStoreItem(row["hash"], row["embedding"], row["str"])
                 
-                # 加入缓存
                 self._ensure_cache_size()
                 self._cache[key] = item
                 self._cache_misses += 1
@@ -237,7 +229,7 @@ class EmbeddingStore:
         return [f"{namespace}-{get_sha256(t)}" for t in texts]
 
     def _get_embedding(self, s: str) -> List[float]:
-        """获取字符串的嵌入向量，使用完全同步的方式避免事件循环问题"""
+        """获取字符串的嵌入向量"""
         # 创建新的事件循环并在完成后立即关闭
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
